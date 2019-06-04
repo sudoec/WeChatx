@@ -142,7 +142,7 @@ void SendClean()
 void SetFilesToClipboard(const std::string sFile)
 {
 	DROPFILES dobj = { 20, { 0, 0 }, 0, 1 };
-	int nLen = sFile.length() + 1;
+	int nLen = (int)sFile.length() + 1;
 	int nGblLen = sizeof(dobj) + nLen * 2 + 5;//lots of nulls and multibyte_char
 	HGLOBAL hGbl = GlobalAlloc(GMEM_ZEROINIT | GMEM_MOVEABLE | GMEM_DDESHARE, nGblLen);
 	char* sData = (char*)::GlobalLock(hGbl);
