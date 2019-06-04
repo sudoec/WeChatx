@@ -14,6 +14,7 @@
 #include <atlimage.h>
 #include <opencv2/opencv.hpp>
 #include "asio/asio.hpp"
+#include "Timer.hpp"
 
 using namespace cv;
 using namespace std;
@@ -23,6 +24,11 @@ using asio::ip::tcp;
 
 HWND hq;
 RECT windowsize;
+Mat preImg, curImg;
+static bool outDate = true;
+static bool commandFinish = true;
+static std::string commandStr;
+static int mleft, mtop;
 
 
 void SendNum(char c)
@@ -61,6 +67,7 @@ void SendCtlC()
 	input[1].ki.wVk = input[2].ki.wVk = 'C';
 	input[2].ki.dwFlags = input[3].ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(4, input, sizeof(INPUT));
+	Sleep(20);
 }
 
 void SendCtlV()
@@ -72,6 +79,7 @@ void SendCtlV()
 	input[1].ki.wVk = input[2].ki.wVk = 'V';
 	input[2].ki.dwFlags = input[3].ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(4, input, sizeof(INPUT));
+	Sleep(20);
 }
 
 void SendEnter()
@@ -82,6 +90,7 @@ void SendEnter()
 	input[0].ki.wVk = input[1].ki.wVk = VK_RETURN;
 	input[1].ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(2, input, sizeof(INPUT));
+	Sleep(20);
 }
 
 void SendCtlEnter()
@@ -93,6 +102,7 @@ void SendCtlEnter()
 	input[1].ki.wVk = input[2].ki.wVk = VK_RETURN;
 	input[2].ki.dwFlags = input[3].ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(4, input, sizeof(INPUT));
+	Sleep(20);
 }
 
 void SendMouse(int x, int y, int flag = 0)
@@ -125,6 +135,7 @@ void SendMouse(int x, int y, int flag = 0)
 		input[1].mi.dwFlags = input[3].mi.dwFlags = MOUSEEVENTF_LEFTUP;
 		SendInput(4, input, sizeof(INPUT));
 	}
+	Sleep(20);
 }
 
 void SendClean()
@@ -137,6 +148,7 @@ void SendClean()
 	input[4].ki.wVk = input[5].ki.wVk = VK_BACK;
 	input[2].ki.dwFlags = input[3].ki.dwFlags = input[5].ki.dwFlags = KEYEVENTF_KEYUP;
 	SendInput(6, input, sizeof(INPUT));
+	Sleep(20);
 }
 
 void SetFilesToClipboard(const std::string sFile)
@@ -214,6 +226,7 @@ Mat GetScreenForm() {
 	{
 		SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
 		SetForegroundWindow(hq);
+		Sleep(20);
 	}
 
 	HDC hwindowDC, hwindowCompatibleDC;
@@ -274,102 +287,253 @@ Mat GetScreenForm() {
 	return resGray;
 }
 
-int main()
+std::string WeGetMessage(const Point content, const int left, const int top)
 {
-	Mat preImg, curImg;
-	while (1)
+	SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+	SetForegroundWindow(hq);
+	Sleep(20);
+
+	RECT rect;
+	GetWindowRect(hq, &rect);
+
+	SendMouse(rect.left + content.x, rect.top + content.y, 1);
+	SendMouse(rect.left + content.x + 4, rect.top + content.y + 4, 0);
+	SetCursorPos(rect.left, rect.top);
+	return GetAsniFromClipBoard();
+}
+
+void WeSendText(const int left, const int top, const std::string text)
+{
+	SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+	SetForegroundWindow(hq);
+	Sleep(20);
+
+	RECT rect;
+	GetWindowRect(hq, &rect);
+
+	SetAsniToClipBoard(text);
+	//SendMouse(rect.left + left + 64, rect.top + top + 64, 1);
+	//Sleep(20);
+	//SendMouse(rect.left + left + 64 + 4, rect.top + top + 64 + 4, 0);
+	//Sleep(20);
+	//SendEnter();
+	
+	SendMouse(rect.left + left + 64, rect.top + top + 64, 0);
+	SendCtlV();
+	SendEnter();
+}
+
+void WeSendFile(const int left, const int top, const std::string text)
+{
+	SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+	SetForegroundWindow(hq);
+	Sleep(20);
+
+	RECT rect;
+	GetWindowRect(hq, &rect);
+
+	SetFilesToClipboard(text);
+	//SendMouse(rect.left + left + 64, rect.top + top + 64, 1);
+	//Sleep(20);
+	//SendMouse(rect.left + left + 64 + 4, rect.top + top + 64 + 4, 0);
+	//Sleep(20);
+	//SendEnter();
+	
+	SendMouse(rect.left + left + 64, rect.top + top + 64, 0);
+	SendCtlV();
+	SendEnter();
+}
+
+void WeSendMessage(const int left, const int top, const std::string msg)
+{
+	SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
+	SetForegroundWindow(hq);
+	Sleep(20);
+
+	pair<bool, std::string> tmpStr;
+	vector<pair<bool, std::string>> context;
+	for (int i = 0; i <= msg.length(); i++)
 	{
-		Sleep(20);
-		curImg = GetScreenForm();
-		if (preImg.cols != curImg.cols || preImg.rows != curImg.rows)
+		if (msg[i] == '\f' || i == msg.length())
 		{
-			preImg = curImg;
+			if (tmpStr.second.length() > 0)
+				context.push_back(tmpStr);
+			tmpStr.first = !tmpStr.first;
+			tmpStr.second = "";
+		}
+		else
+			tmpStr.second.push_back(msg[i]);
+	}
+
+	for (int i = 0; i < context.size(); i++)
+	{
+		if (!context[i].first)
+		{
+			WeSendText(left, top, context[i].second);
 		}
 		else
 		{
-			int left, top;
-			for (int i = preImg.cols - 4; i > 0; i--)
-			{
-				if (preImg.at<uchar>(preImg.rows - 4, i) != preImg.at<uchar>(preImg.rows - 4, i - 1))
-				{
-					left = i;
-					break;
-				}
-			}
-			for (int j = preImg.rows - 4; j > 0; j--)
-			{
-				if (preImg.at<uchar>(j, preImg.cols - 4) != preImg.at<uchar>(j - 1, preImg.cols - 4))
-				{
-					top = j;
-					break;
-				}
-			}
-			bool diff = false;
-			curImg = GetScreenForm();
-			for (int i = left; i < left + 2*OFFSET; i++)
-			{
-				for (int j = top - 2; j > top / 3; j--)
-				{
-					if (preImg.at<uchar>(j, i) != curImg.at<uchar>(j, i))
-					{
-						diff = true;
-						break;
-					}
-				}
-			}
-			if (!diff)
-				continue;
-			
-			Sleep(40);
-			preImg = GetScreenForm();
-			bool command = false;
-			Point content = Point(0, 0);
-			for (int i = top - 2; i > 0; i--)
-			{
-				if (preImg.at<uchar>(i, left + OFFSET) != preImg.at<uchar>(i - 1, left + OFFSET))
-				{
-					command = true;
-					content.x = left + 104;
-					content.y = i - 18;
-					break;
-				}
-				if (preImg.at<uchar>(i, preImg.cols - OFFSET) != preImg.at<uchar>(i - 1, preImg.cols - OFFSET))
-				{
-					command = false;
-					content.x = preImg.cols - 104;
-					content.y = i - 18;
-					break;
-				}
-			}
-			if (command)
-			{
-				SetWindowPos(hq, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS);
-				SetForegroundWindow(hq);
-
-				RECT rect;
-				GetWindowRect(hq, &rect);
-
-				//SendMouse(rect.left + content.x, rect.top + content.y, 2);
-				//SendCtlC();
-
-				Sleep(40);
-				SendMouse(rect.left + content.x, rect.top + content.y, 1);
-				Sleep(40);
-				SendMouse(rect.left + content.x + 4, rect.top + content.y + 4, 0);
-				SetCursorPos(rect.left, rect.top);
-				Sleep(40);
-				string str = GetAsniFromClipBoard();
-				cout << str << endl;
-				SendMouse(rect.left + left + 64, rect.top + top + 64, 1);
-				Sleep(40);
-				SendMouse(rect.left + left + 64 + 4, rect.top + top + 64 + 4, 0);
-				Sleep(40);
-				SendEnter();
-			}
+			WeSendFile(left, top, context[i].second);
 		}
 	}
+
+}
+
+std::string GetCommand()
+{
+	if (!outDate)
+	{
+		outDate = true;
+		return commandStr;
+	}
+	else
+		return "";
+}
+
+void TaskUpdateFormFunc() {
+
+	curImg = GetScreenForm();
+	if (!outDate || !commandFinish)
+	{
+		preImg = curImg;
+		return;
+	}
+	if (preImg.cols != curImg.cols || preImg.rows != curImg.rows)
+	{
+		preImg = curImg;
+	}
+	else
+	{
+		//int left, top;
+		for (int i = preImg.cols - 4; i > 0; i--)
+		{
+			if (preImg.at<uchar>(preImg.rows - 4, i) != preImg.at<uchar>(preImg.rows - 4, i - 1))
+			{
+				mleft = i;
+				break;
+			}
+		}
+		for (int j = preImg.rows - 4; j > 0; j--)
+		{
+			if (preImg.at<uchar>(j, preImg.cols - 4) != preImg.at<uchar>(j - 1, preImg.cols - 4))
+			{
+				mtop = j;
+				break;
+			}
+		}
+		bool diff = false;
+		for (int i = mleft; i < mleft + 2 * OFFSET; i++)
+		{
+			for (int j = mtop - 2; j > mtop / 3; j--)
+			{
+				if (preImg.at<uchar>(j, i) != curImg.at<uchar>(j, i))
+				{
+					diff = true;
+					break;
+				}
+			}
+		}
+		if (!diff)
+			return;
+
+		Sleep(20);
+		preImg = GetScreenForm();
+		bool command = false;
+		Point content = Point(0, 0);
+		for (int i = mtop - 2; i > 0; i--)
+		{
+			if (preImg.at<uchar>(i, mleft + OFFSET) != preImg.at<uchar>(i - 1, mleft + OFFSET))
+			{
+				command = true;
+				content.x = mleft + 104;
+				content.y = i - 18;
+				break;
+			}
+			if (preImg.at<uchar>(i, preImg.cols - OFFSET) != preImg.at<uchar>(i - 1, preImg.cols - OFFSET))
+			{
+				command = false;
+				content.x = preImg.cols - 104;
+				content.y = i - 18;
+				break;
+			}
+		}
+		if (command)
+		{
+			commandStr = WeGetMessage(content, mleft, mtop);
+			cout << commandStr << endl;
+			outDate = false;
+			//commandStr = "kiv:\fE:/jenny.jpg\fend";
+			//WeSendMessage(left, top, commandStr);
+		}
+	}
+}
+
+std::string fxread(tcp::socket &socket)
+{
+	asio::streambuf buf;
+	asio::error_code ignored_error;
+	asio::read(socket, buf, asio::transfer_exactly(4), ignored_error);
+	int tranSize = *asio::buffer_cast<const int*>(buf.data());
+	buf.consume(4);
+	asio::read(socket, buf, asio::transfer_exactly(tranSize), ignored_error);
+	std::string str(asio::buffers_begin(buf.data()), asio::buffers_end(buf.data()));
+	return str;
+}
+
+void fxwrite(tcp::socket &socket, const std::string &vec)
+{
+	asio::error_code ignored_error;
+	std::vector<char> buff(vec.size() + 4);
+	*(int*)buff.data() = (int)vec.size();
+	for (int i = 0; i < vec.size(); i++)
+	{
+		buff[i + 4] = vec[i];
+	}
+	asio::write(socket, asio::buffer(buff), asio::transfer_exactly(buff.size()), ignored_error);
+}
+
+int main()
+{
+
+	Timer TaskUpdateForm;
+	TaskUpdateForm.StartTimer(100, std::bind(TaskUpdateFormFunc));
 	
-	
+	for (;;)
+	{
+		try
+		{
+			asio::io_context io_context;
+			tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), 34580));
+
+			for (;;)
+			{
+				tcp::socket socket(io_context);
+				acceptor.accept(socket);
+
+				std::string str(fxread(socket));
+				if (str == "#GETCOMMAND#")
+				{
+					fxwrite(socket, GetCommand());
+				}
+				else
+				{
+					commandFinish = false;
+					outDate = true;
+					WeSendMessage(mleft, mtop, str);
+					commandFinish = true;
+					fxwrite(socket, "#OK#");
+				}
+			}
+		}
+		catch (std::exception& e)
+		{
+			cout << e.what() << endl;
+		}
+	}
+
+	std::this_thread::sleep_for(std::chrono::seconds(36000000));
+	return 0;
+
 	while (1)
 	{
 		if (GetKeyState(VK_F2) & 0x8000)
